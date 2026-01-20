@@ -159,11 +159,24 @@ const bird = {
   gravity: 0.125,
   thrust: 3.6,
   frame: 0,
-  width: 34,
+  width: 24,
   height: 34,
+  scale: 0.25, // Scale factor to make bird smaller (adjust as needed)
   draw: function () {
-    let h = this.height;
-    let w = this.width;
+    // Use sprite's natural dimensions to maintain proper aspect ratio
+    const sprite = this.animations[this.frame].sprite;
+    let w, h;
+    
+    if (sprite.complete && sprite.naturalWidth > 0 && sprite.naturalHeight > 0) {
+      // Scale down the sprite while maintaining aspect ratio
+      w = sprite.naturalWidth * this.scale;
+      h = sprite.naturalHeight * this.scale;
+    } else {
+      // Fallback to default proportions (original Flappy Bird ratio: ~24x34)
+      w = this.width * this.scale;
+      h = this.height * this.scale;
+    }
+    
     sctx.save();
     sctx.translate(this.x, this.y);
     sctx.rotate(this.rotatation * RAD);
@@ -172,11 +185,12 @@ const bird = {
     sctx.shadowColor = "rgba(255, 255, 200, 0.8)";
     sctx.shadowOffsetX = 0;
     sctx.shadowOffsetY = 0;
-    sctx.drawImage(this.animations[this.frame].sprite, -w / 2, -h / 2, w, h);
+    sctx.drawImage(sprite, -w / 2, -h / 2, w, h);
     sctx.restore();
   },
   update: function () {
-    let r = this.width / 2;
+    // Use average of width and height for collision radius to account for proper aspect ratio
+    let r = (this.width + this.height) / 4;
     switch (state.curr) {
       case state.getReady:
         this.rotatation = 0;
@@ -230,7 +244,8 @@ const bird = {
     if (!pipe.pipes.length) return;
     let x = pipe.pipes[0].x;
     let y = pipe.pipes[0].y;
-    let r = this.height / 4 + this.width / 4;
+    // Use proper collision radius based on bird's actual dimensions
+    let r = Math.max(this.width, this.height) / 2;
     let roof = y + parseFloat(pipe.top.sprite.height);
     let floor = roof + pipe.gap;
     let w = parseFloat(pipe.top.sprite.width);
@@ -264,21 +279,40 @@ const UI = {
   draw: function () {
     switch (state.curr) {
       case state.getReady:
-        this.y = parseFloat(scrn.height - this.getReady.sprite.height) / 2;
-        this.x = parseFloat(scrn.width - this.getReady.sprite.width) / 2;
-        this.tx = parseFloat(scrn.width - this.tap[0].sprite.width) / 2;
-        this.ty =
-          this.y + this.getReady.sprite.height - this.tap[0].sprite.height;
-        sctx.drawImage(this.getReady.sprite, this.x, this.y);
-        sctx.drawImage(this.tap[this.frame].sprite, this.tx, this.ty);
+        // Ensure image has loaded before drawing
+        if (this.getReady.sprite.complete && this.getReady.sprite.naturalWidth > 0) {
+          // Scale down if image is too large for canvas
+          const maxWidth = scrn.width * 0.9;
+          const maxHeight = scrn.height * 0.5;
+          let drawWidth = this.getReady.sprite.width;
+          let drawHeight = this.getReady.sprite.height;
+          
+          // Scale down if needed to fit on canvas
+          if (drawWidth > maxWidth || drawHeight > maxHeight) {
+            const scale = Math.min(maxWidth / drawWidth, maxHeight / drawHeight);
+            drawWidth = drawWidth * scale;
+            drawHeight = drawHeight * scale;
+          }
+          
+          this.y = parseFloat(scrn.height - drawHeight) / 2;
+          this.x = parseFloat(scrn.width - drawWidth) / 2;
+          this.tx = parseFloat(scrn.width - this.tap[0].sprite.width) / 2;
+          this.ty = this.y + drawHeight + 15;
+          sctx.drawImage(this.getReady.sprite, this.x, this.y, drawWidth, drawHeight);
+          sctx.drawImage(this.tap[this.frame].sprite, this.tx, this.ty);
+        }
         break;
       case state.gameOver:
-        this.y = parseFloat(scrn.height - this.gameOver.sprite.height) / 2;
-        this.x = parseFloat(scrn.width - this.gameOver.sprite.width) / 2;
+        // Scale down the game over sprite
+        const scale = 0.4; // Scale factor to make it smaller
+        const scaledWidth = this.gameOver.sprite.width * scale;
+        const scaledHeight = this.gameOver.sprite.height * scale;
+        this.y = parseFloat(scrn.height - scaledHeight) / 2;
+        this.x = parseFloat(scrn.width - scaledWidth) / 2;
         this.tx = parseFloat(scrn.width - this.tap[0].sprite.width) / 2;
         this.ty =
-          this.y + this.gameOver.sprite.height - this.tap[0].sprite.height;
-        sctx.drawImage(this.gameOver.sprite, this.x, this.y);
+          this.y + scaledHeight - this.tap[0].sprite.height;
+        sctx.drawImage(this.gameOver.sprite, this.x, this.y, scaledWidth, scaledHeight);
         sctx.drawImage(this.tap[this.frame].sprite, this.tx, this.ty);
         break;
     }
