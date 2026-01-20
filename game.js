@@ -108,6 +108,9 @@ const bg = {
   draw: function () {
     // Scale and fit the background to fill the entire canvas
     sctx.drawImage(this.sprite, 0, 0, scrn.width, scrn.height);
+    // Darken the background with a semi-transparent black overlay
+    sctx.fillStyle = "rgba(0, 0, 0, 0.3)"; // Adjust opacity (0.0 to 1.0) to control darkness
+    sctx.fillRect(0, 0, scrn.width, scrn.height);
   },
 };
 const pipe = {
@@ -157,11 +160,11 @@ const bird = {
   y: 100,
   speed: 0,
   gravity: 0.125,
-  thrust: 3.6,
+  thrust: 2.5,
   frame: 0,
   width: 24,
   height: 34,
-  scale: 0.25, // Scale factor to make bird smaller (adjust as needed)
+  scale: 0.17, // Scale factor to make bird smaller (adjust as needed)
   draw: function () {
     // Use sprite's natural dimensions to maintain proper aspect ratio
     const sprite = this.animations[this.frame].sprite;
@@ -241,26 +244,36 @@ const bird = {
     }
   },
   collisioned: function () {
-    if (!pipe.pipes.length) return;
-    let x = pipe.pipes[0].x;
-    let y = pipe.pipes[0].y;
+    if (!pipe.pipes.length) return false;
     // Use proper collision radius based on bird's actual dimensions
     let r = Math.max(this.width, this.height) / 2;
-    let roof = y + parseFloat(pipe.top.sprite.height);
-    let floor = roof + pipe.gap;
     let w = parseFloat(pipe.top.sprite.width);
-    if (this.x + r >= x) {
-      if (this.x + r < x + w) {
+    
+    // Check collision with all pipes
+    for (let i = 0; i < pipe.pipes.length; i++) {
+      let p = pipe.pipes[i];
+      let x = p.x;
+      let y = p.y;
+      let roof = y + parseFloat(pipe.top.sprite.height);
+      let floor = roof + pipe.gap;
+      
+      // Check if bird is horizontally overlapping with this pipe
+      if (this.x + r >= x && this.x - r <= x + w) {
+        // Check if bird collides with top or bottom pipe
         if (this.y - r <= roof || this.y + r >= floor) {
           SFX.hit.play();
           return true;
         }
-      } else if (pipe.moved) {
+      }
+      
+      // Check scoring - bird passed the pipe
+      if (i === 0 && this.x - r > x + w && pipe.moved) {
         UI.score.curr++;
         SFX.score.play();
         pipe.moved = false;
       }
     }
+    return false;
   },
 };
 const UI = {
