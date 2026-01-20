@@ -2,6 +2,33 @@ const RAD = Math.PI / 180;
 const scrn = document.getElementById("canvas");
 const sctx = scrn.getContext("2d");
 scrn.tabIndex = 1;
+
+// Original game dimensions
+const ORIGINAL_WIDTH = 276;
+const ORIGINAL_HEIGHT = 414;
+
+// Scale canvas to fit screen while maintaining aspect ratio
+function resizeCanvas() {
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    
+    // Calculate scale to fit screen
+    const scaleX = windowWidth / ORIGINAL_WIDTH;
+    const scaleY = windowHeight / ORIGINAL_HEIGHT;
+    const scale = Math.min(scaleX, scaleY);
+    
+    // Set canvas display size (scaled)
+    scrn.style.width = (ORIGINAL_WIDTH * scale) + 'px';
+    scrn.style.height = (ORIGINAL_HEIGHT * scale) + 'px';
+    
+    // Keep internal resolution at original size
+    scrn.width = ORIGINAL_WIDTH;
+    scrn.height = ORIGINAL_HEIGHT;
+}
+
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
 scrn.addEventListener("click", () => {
   switch (state.curr) {
     case state.getReady:
@@ -132,17 +159,19 @@ const bird = {
   gravity: 0.125,
   thrust: 3.6,
   frame: 0,
+  width: 34,
+  height: 34,
   draw: function () {
-    let h = this.animations[this.frame].sprite.height;
-    let w = this.animations[this.frame].sprite.width;
+    let h = this.height;
+    let w = this.width;
     sctx.save();
     sctx.translate(this.x, this.y);
     sctx.rotate(this.rotatation * RAD);
-    sctx.drawImage(this.animations[this.frame].sprite, -w / 2, -h / 2);
+    sctx.drawImage(this.animations[this.frame].sprite, -w / 2, -h / 2, w, h);
     sctx.restore();
   },
   update: function () {
-    let r = parseFloat(this.animations[0].sprite.width) / 2;
+    let r = this.width / 2;
     switch (state.curr) {
       case state.getReady:
         this.rotatation = 0;
@@ -194,10 +223,9 @@ const bird = {
   },
   collisioned: function () {
     if (!pipe.pipes.length) return;
-    let bird = this.animations[0].sprite;
     let x = pipe.pipes[0].x;
     let y = pipe.pipes[0].y;
-    let r = bird.height / 4 + bird.width / 4;
+    let r = this.height / 4 + this.width / 4;
     let roof = y + parseFloat(pipe.top.sprite.height);
     let floor = roof + pipe.gap;
     let w = parseFloat(pipe.top.sprite.width);
