@@ -106,8 +106,8 @@ const bg = {
   x: 0,
   y: 0,
   draw: function () {
-    y = parseFloat(scrn.height - this.sprite.height);
-    sctx.drawImage(this.sprite, this.x, y);
+    // Scale and fit the background to fill the entire canvas
+    sctx.drawImage(this.sprite, 0, 0, scrn.width, scrn.height);
   },
 };
 const pipe = {
@@ -167,6 +167,11 @@ const bird = {
     sctx.save();
     sctx.translate(this.x, this.y);
     sctx.rotate(this.rotatation * RAD);
+    // Add glow effect
+    sctx.shadowBlur = 15;
+    sctx.shadowColor = "rgba(255, 255, 200, 0.8)";
+    sctx.shadowOffsetX = 0;
+    sctx.shadowOffsetY = 0;
     sctx.drawImage(this.animations[this.frame].sprite, -w / 2, -h / 2, w, h);
     sctx.restore();
   },
@@ -320,7 +325,7 @@ const UI = {
 };
 
 gnd.sprite.src = "img/ground.png";
-bg.sprite.src = "img/BG.png";
+bg.sprite.src = "img/BG.jpg";
 pipe.top.sprite.src = "img/toppipe.png";
 pipe.bot.sprite.src = "img/botpipe.png";
 UI.gameOver.sprite.src = "img/go.png";
