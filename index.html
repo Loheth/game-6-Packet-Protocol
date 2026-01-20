@@ -10,6 +10,25 @@
 </head>
 <body>
     <canvas id="canvas" width="276" height="414"></canvas>
+    <div id="nameModal" class="modal">
+        <div class="modal-content">
+            <h2>Game Over!</h2>
+            <p class="score-display">Your Score: <span id="finalScore">0</span></p>
+            
+            <div class="leaderboard-section">
+                <h3 class="leaderboard-title">Leaderboard</h3>
+                <div id="leaderboardList" class="leaderboard-list"></div>
+            </div>
+            
+            <p class="prompt-text">Enter your name for the leaderboard:</p>
+            <input type="text" id="playerNameInput" placeholder="Your name" maxlength="20" autofocus>
+            <button id="submitNameBtn">Submit</button>
+            <div class="button-group">
+                <button id="restartBtn" class="restart-btn">Restart Game</button>
+                <button id="quitBtn" class="quit-btn">Quit</button>
+            </div>
+        </div>
+    </div>
     <script src="game.js"></script>
 </body>
 </html>

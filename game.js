@@ -54,12 +54,17 @@ scrn.addEventListener("click", () => {
       bird.flap();
       break;
     case state.gameOver:
-      state.curr = state.getReady;
-      bird.speed = 0;
-      bird.y = 100;
-      pipe.pipes = [];
-      UI.score.curr = 0;
-      SFX.played = false;
+      // Don't allow restart via click when modal is showing
+      const modal = document.getElementById("nameModal");
+      if (!modal || !modal.classList.contains("show")) {
+        state.curr = state.getReady;
+        bird.speed = 0;
+        bird.y = 100;
+        pipe.pipes = [];
+        UI.score.curr = 0;
+        SFX.played = false;
+        UI.namePrompted = false;
+      }
       break;
   }
 });
@@ -75,12 +80,17 @@ scrn.onkeydown = function keyDown(e) {
         bird.flap();
         break;
       case state.gameOver:
-        state.curr = state.getReady;
-        bird.speed = 0;
-        bird.y = 100;
-        pipe.pipes = [];
-        UI.score.curr = 0;
-        SFX.played = false;
+        // Don't allow restart via keyboard when modal is showing
+        const modal = document.getElementById("nameModal");
+        if (!modal || !modal.classList.contains("show")) {
+          state.curr = state.getReady;
+          bird.speed = 0;
+          bird.y = 100;
+          pipe.pipes = [];
+          UI.score.curr = 0;
+          SFX.played = false;
+          UI.namePrompted = false;
+        }
         break;
     }
   }
@@ -267,6 +277,13 @@ const bird = {
           if (!SFX.played) {
             SFX.die.play();
             SFX.played = true;
+            // Prompt for player name when game ends
+            if (!UI.namePrompted) {
+              UI.namePrompted = true;
+              setTimeout(() => {
+                Leaderboard.promptPlayerName(UI.score.curr);
+              }, 500);
+            }
           }
         }
 
@@ -320,6 +337,170 @@ const bird = {
     return false;
   },
 };
+// Leaderboard functions
+const Leaderboard = {
+  get: function() {
+    try {
+      const stored = localStorage.getItem("leaderboard");
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  },
+  save: function(leaderboard) {
+    try {
+      localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
+    } catch (e) {
+      console.error("Failed to save leaderboard:", e);
+    }
+  },
+  addScore: function(name, score) {
+    if (!name || name.trim() === "") return;
+    
+    const leaderboard = this.get();
+    const normalizedName = name.trim();
+    
+    // Find existing entry (case-insensitive)
+    const existingIndex = leaderboard.findIndex(
+      entry => entry.name.toLowerCase() === normalizedName.toLowerCase()
+    );
+    
+    if (existingIndex !== -1) {
+      // Update score if new score is higher
+      if (score > leaderboard[existingIndex].score) {
+        leaderboard[existingIndex].score = score;
+        // Preserve original case of the name
+        leaderboard[existingIndex].name = normalizedName;
+      }
+    } else {
+      // Add new entry
+      leaderboard.push({ name: normalizedName, score: score });
+    }
+    
+    // Sort by score (descending)
+    leaderboard.sort((a, b) => b.score - a.score);
+    
+    // Keep only top 10
+    if (leaderboard.length > 10) {
+      leaderboard.splice(10);
+    }
+    
+    this.save(leaderboard);
+  },
+  promptPlayerName: function(score) {
+    const modal = document.getElementById("nameModal");
+    const nameInput = document.getElementById("playerNameInput");
+    const submitBtn = document.getElementById("submitNameBtn");
+    const restartBtn = document.getElementById("restartBtn");
+    const quitBtn = document.getElementById("quitBtn");
+    const scoreDisplay = document.getElementById("finalScore");
+    const leaderboardContainer = document.getElementById("leaderboardList");
+    
+    // Set the score display
+    scoreDisplay.textContent = score;
+    
+    // Populate leaderboard in modal
+    this.updateLeaderboardDisplay(leaderboardContainer);
+    
+    // Show the modal
+    modal.classList.add("show");
+    nameInput.value = "";
+    nameInput.focus();
+    
+    // Handle submit button click
+    const handleSubmit = () => {
+      const name = nameInput.value.trim();
+      if (name !== "") {
+        // Store last player name for highlighting
+        try {
+          localStorage.setItem("lastPlayerName", name);
+        } catch (e) {
+          // Ignore if localStorage fails
+        }
+        this.addScore(name, score);
+        // Update leaderboard display after adding score
+        this.updateLeaderboardDisplay(leaderboardContainer);
+        // Keep modal open - don't close it
+        // Remove event listeners
+        submitBtn.removeEventListener("click", handleSubmit);
+        nameInput.removeEventListener("keypress", handleKeyPress);
+      }
+    };
+    
+    // Handle Enter key press
+    const handleKeyPress = (e) => {
+      if (e.key === "Enter") {
+        handleSubmit();
+      }
+    };
+    
+    // Handle restart button click
+    const handleRestart = () => {
+      // Close modal
+      modal.classList.remove("show");
+      // Reset game state
+      state.curr = state.getReady;
+      bird.speed = 0;
+      bird.y = 100;
+      pipe.pipes = [];
+      UI.score.curr = 0;
+      SFX.played = false;
+      UI.namePrompted = false;
+      // Remove all event listeners
+      submitBtn.removeEventListener("click", handleSubmit);
+      nameInput.removeEventListener("keypress", handleKeyPress);
+      restartBtn.removeEventListener("click", handleRestart);
+      quitBtn.removeEventListener("click", handleQuit);
+    };
+    
+    // Handle quit button click
+    const handleQuit = () => {
+      // Close modal and leave game in game over state
+      modal.classList.remove("show");
+      // Remove all event listeners
+      submitBtn.removeEventListener("click", handleSubmit);
+      nameInput.removeEventListener("keypress", handleKeyPress);
+      restartBtn.removeEventListener("click", handleRestart);
+      quitBtn.removeEventListener("click", handleQuit);
+    };
+    
+    submitBtn.addEventListener("click", handleSubmit);
+    nameInput.addEventListener("keypress", handleKeyPress);
+    restartBtn.addEventListener("click", handleRestart);
+    quitBtn.addEventListener("click", handleQuit);
+  },
+  updateLeaderboardDisplay: function(container) {
+    if (!container) return;
+    
+    const leaderboard = this.get();
+    const lastPlayerName = localStorage.getItem("lastPlayerName") || "";
+    
+    if (leaderboard.length === 0) {
+      container.innerHTML = '<div class="leaderboard-empty">No scores yet!</div>';
+      return;
+    }
+    
+    let html = '';
+    const maxEntries = 5;
+    const entriesToShow = Math.min(leaderboard.length, maxEntries);
+    
+    for (let i = 0; i < entriesToShow; i++) {
+      const entry = leaderboard[i];
+      const rank = i + 1;
+      const isCurrentPlayer = entry.name.toLowerCase() === lastPlayerName.toLowerCase();
+      const entryClass = isCurrentPlayer ? 'leaderboard-entry current-player' : 'leaderboard-entry';
+      
+      html += `<div class="${entryClass}">
+        <span class="rank">${rank}.</span>
+        <span class="name">${entry.name}</span>
+        <span class="score">${entry.score}</span>
+      </div>`;
+    }
+    
+    container.innerHTML = html;
+  }
+};
+
 const UI = {
   getReady: { sprite: new Image() },
   gameOver: { sprite: new Image() },
@@ -333,6 +514,7 @@ const UI = {
   tx: 0,
   ty: 0,
   frame: 0,
+  namePrompted: false,
   draw: function () {
     switch (state.curr) {
       case state.getReady:
@@ -364,11 +546,11 @@ const UI = {
         const scale = 0.4; // Scale factor to make it smaller
         const scaledWidth = this.gameOver.sprite.width * scale;
         const scaledHeight = this.gameOver.sprite.height * scale;
+        // Center the game over sprite vertically and horizontally
         this.y = parseFloat(ORIGINAL_HEIGHT - scaledHeight) / 2;
         this.x = parseFloat(ORIGINAL_WIDTH - scaledWidth) / 2;
         this.tx = parseFloat(ORIGINAL_WIDTH - this.tap[0].sprite.width) / 2;
-        this.ty =
-          this.y + scaledHeight - this.tap[0].sprite.height;
+        this.ty = ORIGINAL_HEIGHT - 40;
         sctx.drawImage(this.gameOver.sprite, this.x, this.y, scaledWidth, scaledHeight);
         sctx.drawImage(this.tap[this.frame].sprite, this.tx, this.ty);
         break;
@@ -413,61 +595,8 @@ const UI = {
         break;
         
       case state.gameOver:
-        sctx.font = "bold 32px Squada One";
-        const scoreLabel = `SCORE`;
-        const scoreValue = String(this.score.curr);
-        let bestLabel = `BEST`;
-        let bestValue = String(this.score.best);
-        
-        try {
-          this.score.best = Math.max(
-            parseInt(this.score.curr),
-            parseInt(localStorage.getItem("best")) || 0
-          );
-          localStorage.setItem("best", this.score.best);
-          bestValue = String(this.score.best);
-        } catch (e) {
-          // Fallback if localStorage fails
-        }
-        
-        const centerY = ORIGINAL_HEIGHT / 2;
-        const labelY = centerY - 10;
-        const valueY = centerY + 20;
-        const bestLabelY = centerY + 50;
-        const bestValueY = centerY + 80;
-        
-        // Draw score label
-        sctx.shadowBlur = 10;
-        sctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-        sctx.fillStyle = "#FFD700"; // Gold color for labels
-        sctx.fillText(scoreLabel, ORIGINAL_WIDTH / 2, labelY);
-        
-        // Draw score value - bright white
-        sctx.shadowBlur = 12;
-        sctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-        sctx.fillStyle = "#FFFFFF";
-        sctx.fillText(scoreValue, ORIGINAL_WIDTH / 2, valueY);
-        
-        // Draw best label
-        sctx.shadowBlur = 10;
-        sctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-        sctx.fillStyle = "#FFD700"; // Gold color for labels
-        sctx.fillText(bestLabel, ORIGINAL_WIDTH / 2, bestLabelY);
-        
-        // Draw best value - bright white
-        sctx.shadowBlur = 12;
-        sctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-        sctx.fillStyle = "#FFFFFF";
-        sctx.fillText(bestValue, ORIGINAL_WIDTH / 2, bestValueY);
-        
-        // Add subtle outlines for all text
-        sctx.shadowBlur = 0;
-        sctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
-        sctx.lineWidth = 1.5;
-        sctx.strokeText(scoreLabel, ORIGINAL_WIDTH / 2, labelY);
-        sctx.strokeText(scoreValue, ORIGINAL_WIDTH / 2, valueY);
-        sctx.strokeText(bestLabel, ORIGINAL_WIDTH / 2, bestLabelY);
-        sctx.strokeText(bestValue, ORIGINAL_WIDTH / 2, bestValueY);
+        // Score and best are no longer displayed on the game over screen
+        // They are shown in the modal instead
         break;
     }
   },
@@ -475,6 +604,10 @@ const UI = {
     if (state.curr == state.Play) return;
     this.frame += frames % 10 == 0 ? 1 : 0;
     this.frame = this.frame % this.tap.length;
+  },
+  drawLeaderboard: function() {
+    // Leaderboard is now displayed in the modal, not on canvas
+    // This function is kept for potential future use but not called
   },
 };
 
