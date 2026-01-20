@@ -7,7 +7,7 @@ scrn.tabIndex = 1;
 const ORIGINAL_WIDTH = 276;
 const ORIGINAL_HEIGHT = 414;
 
-// Scale canvas to fit screen while maintaining aspect ratio
+// Scale canvas to fit screen while maintaining aspect ratio with high-DPI support
 function resizeCanvas() {
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
@@ -17,17 +17,32 @@ function resizeCanvas() {
     const scaleY = windowHeight / ORIGINAL_HEIGHT;
     const scale = Math.min(scaleX, scaleY);
     
+    // Get device pixel ratio for high-DPI displays
+    const dpr = window.devicePixelRatio || 1;
+    
     // Set canvas display size (scaled)
     scrn.style.width = (ORIGINAL_WIDTH * scale) + 'px';
     scrn.style.height = (ORIGINAL_HEIGHT * scale) + 'px';
     
-    // Keep internal resolution at original size
-    scrn.width = ORIGINAL_WIDTH;
-    scrn.height = ORIGINAL_HEIGHT;
+    // Set internal resolution with high-DPI scaling for crisp rendering
+    scrn.width = ORIGINAL_WIDTH * dpr;
+    scrn.height = ORIGINAL_HEIGHT * dpr;
+    
+    // Reset transform and scale the context to match the device pixel ratio
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.scale(dpr, dpr);
+    
+    // Enable high-quality image smoothing
+    sctx.imageSmoothingEnabled = true;
+    sctx.imageSmoothingQuality = 'high';
 }
 
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
+
+// Ensure high-quality rendering after context is created
+sctx.imageSmoothingEnabled = true;
+sctx.imageSmoothingQuality = 'high';
 
 scrn.addEventListener("click", () => {
   switch (state.curr) {
@@ -93,14 +108,18 @@ const gnd = {
   y: 0,
   draw: function () {
     if (!this.sprite.complete || this.sprite.width === 0) return;
-    this.y = parseFloat(scrn.height - this.sprite.height);
+    this.y = parseFloat(ORIGINAL_HEIGHT - this.sprite.height);
+    
+    // Enable high-quality rendering for ground
+    sctx.imageSmoothingEnabled = true;
+    sctx.imageSmoothingQuality = 'high';
     
     // Tile the ground to cover the entire screen width
     const spriteWidth = this.sprite.width;
     const startX = this.x % spriteWidth;
     
     // Draw ground tiles to cover entire screen width
-    for (let x = startX - spriteWidth; x < scrn.width + spriteWidth; x += spriteWidth) {
+    for (let x = startX - spriteWidth; x < ORIGINAL_WIDTH + spriteWidth; x += spriteWidth) {
       sctx.drawImage(this.sprite, x, this.y);
     }
   },
@@ -119,11 +138,17 @@ const bg = {
   x: 0,
   y: 0,
   draw: function () {
+    // Enable high-quality image smoothing for background
+    sctx.imageSmoothingEnabled = true;
+    sctx.imageSmoothingQuality = 'high';
     // Scale and fit the background to fill the entire canvas
-    sctx.drawImage(this.sprite, 0, 0, scrn.width, scrn.height);
-    // Darken the background with a semi-transparent black overlay
-    sctx.fillStyle = "rgba(0, 0, 0, 0.3)"; // Adjust opacity (0.0 to 1.0) to control darkness
-    sctx.fillRect(0, 0, scrn.width, scrn.height);
+    sctx.drawImage(this.sprite, 0, 0, ORIGINAL_WIDTH, ORIGINAL_HEIGHT);
+    // Enhanced darkening with gradient overlay for depth
+    const gradient = sctx.createLinearGradient(0, 0, 0, ORIGINAL_HEIGHT);
+    gradient.addColorStop(0, "rgba(0, 0, 0, 0.2)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.4)");
+    sctx.fillStyle = gradient;
+    sctx.fillRect(0, 0, ORIGINAL_WIDTH, ORIGINAL_HEIGHT);
   },
 };
 const pipe = {
@@ -133,6 +158,9 @@ const pipe = {
   moved: true,
   pipes: [],
   draw: function () {
+    // Enable high-quality rendering for pipes
+    sctx.imageSmoothingEnabled = true;
+    sctx.imageSmoothingQuality = 'high';
     for (let i = 0; i < this.pipes.length; i++) {
       let p = this.pipes[i];
       sctx.drawImage(this.top.sprite, p.x, p.y);
@@ -147,7 +175,7 @@ const pipe = {
     if (state.curr != state.Play) return;
     if (frames % 100 == 0) {
       this.pipes.push({
-        x: parseFloat(scrn.width),
+        x: parseFloat(ORIGINAL_WIDTH),
         y: -210 * Math.min(Math.random() + 1, 1.8),
       });
     }
@@ -196,11 +224,14 @@ const bird = {
     sctx.save();
     sctx.translate(this.x, this.y);
     sctx.rotate(this.rotatation * RAD);
-    // Add glow effect
-    sctx.shadowBlur = 15;
-    sctx.shadowColor = "rgba(255, 255, 200, 0.8)";
+    // Enhanced glow effect for premium look
+    sctx.shadowBlur = 20;
+    sctx.shadowColor = "rgba(255, 255, 200, 0.9)";
     sctx.shadowOffsetX = 0;
     sctx.shadowOffsetY = 0;
+    // Enable high-quality rendering
+    sctx.imageSmoothingEnabled = true;
+    sctx.imageSmoothingQuality = 'high';
     sctx.drawImage(sprite, -w / 2, -h / 2, w, h);
     sctx.restore();
   },
@@ -308,8 +339,8 @@ const UI = {
         // Ensure image has loaded before drawing
         if (this.getReady.sprite.complete && this.getReady.sprite.naturalWidth > 0) {
           // Scale down if image is too large for canvas
-          const maxWidth = scrn.width * 0.9;
-          const maxHeight = scrn.height * 0.5;
+          const maxWidth = ORIGINAL_WIDTH * 0.9;
+          const maxHeight = ORIGINAL_HEIGHT * 0.5;
           let drawWidth = this.getReady.sprite.width;
           let drawHeight = this.getReady.sprite.height;
           
@@ -320,9 +351,9 @@ const UI = {
             drawHeight = drawHeight * scale;
           }
           
-          this.y = parseFloat(scrn.height - drawHeight) / 2;
-          this.x = parseFloat(scrn.width - drawWidth) / 2;
-          this.tx = parseFloat(scrn.width - this.tap[0].sprite.width) / 2;
+          this.y = parseFloat(ORIGINAL_HEIGHT - drawHeight) / 2;
+          this.x = parseFloat(ORIGINAL_WIDTH - drawWidth) / 2;
+          this.tx = parseFloat(ORIGINAL_WIDTH - this.tap[0].sprite.width) / 2;
           this.ty = this.y + drawHeight + 15;
           sctx.drawImage(this.getReady.sprite, this.x, this.y, drawWidth, drawHeight);
           sctx.drawImage(this.tap[this.frame].sprite, this.tx, this.ty);
@@ -333,9 +364,9 @@ const UI = {
         const scale = 0.4; // Scale factor to make it smaller
         const scaledWidth = this.gameOver.sprite.width * scale;
         const scaledHeight = this.gameOver.sprite.height * scale;
-        this.y = parseFloat(scrn.height - scaledHeight) / 2;
-        this.x = parseFloat(scrn.width - scaledWidth) / 2;
-        this.tx = parseFloat(scrn.width - this.tap[0].sprite.width) / 2;
+        this.y = parseFloat(ORIGINAL_HEIGHT - scaledHeight) / 2;
+        this.x = parseFloat(ORIGINAL_WIDTH - scaledWidth) / 2;
+        this.tx = parseFloat(ORIGINAL_WIDTH - this.tap[0].sprite.width) / 2;
         this.ty =
           this.y + scaledHeight - this.tap[0].sprite.height;
         sctx.drawImage(this.gameOver.sprite, this.x, this.y, scaledWidth, scaledHeight);
@@ -345,35 +376,98 @@ const UI = {
     this.drawScore();
   },
   drawScore: function () {
-    sctx.fillStyle = "#FFFFFF";
-    sctx.strokeStyle = "#000000";
+    // Enable text rendering hints for crisp text
+    sctx.textBaseline = 'middle';
+    sctx.textAlign = 'center';
+    
     switch (state.curr) {
       case state.Play:
-        sctx.lineWidth = "2";
-        sctx.font = "35px Squada One";
-        sctx.fillText(this.score.curr, scrn.width / 2 - 5, 50);
-        sctx.strokeText(this.score.curr, scrn.width / 2 - 5, 50);
+        // Bright, vibrant score display matching game UI
+        sctx.font = "bold 40px Squada One";
+        const scoreText = String(this.score.curr);
+        
+        // Draw multiple layers for depth and visibility
+        // Outer glow/shadow
+        sctx.shadowBlur = 12;
+        sctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+        sctx.shadowOffsetX = 0;
+        sctx.shadowOffsetY = 0;
+        sctx.fillStyle = "#FFFFFF";
+        sctx.fillText(scoreText, ORIGINAL_WIDTH / 2, 50);
+        
+        // Bright white fill with slight glow
+        sctx.shadowBlur = 8;
+        sctx.shadowColor = "rgba(255, 255, 255, 0.6)";
+        sctx.fillStyle = "#FFFFFF";
+        sctx.fillText(scoreText, ORIGINAL_WIDTH / 2, 50);
+        
+        // Main bright text
+        sctx.shadowBlur = 0;
+        sctx.fillStyle = "#FFFFFF";
+        sctx.fillText(scoreText, ORIGINAL_WIDTH / 2, 50);
+        
+        // Subtle outline for definition
+        sctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+        sctx.lineWidth = 1.5;
+        sctx.strokeText(scoreText, ORIGINAL_WIDTH / 2, 50);
         break;
+        
       case state.gameOver:
-        sctx.lineWidth = "2";
-        sctx.font = "40px Squada One";
-        let sc = `SCORE :     ${this.score.curr}`;
+        sctx.font = "bold 32px Squada One";
+        const scoreLabel = `SCORE`;
+        const scoreValue = String(this.score.curr);
+        let bestLabel = `BEST`;
+        let bestValue = String(this.score.best);
+        
         try {
           this.score.best = Math.max(
-            this.score.curr,
-            localStorage.getItem("best")
+            parseInt(this.score.curr),
+            parseInt(localStorage.getItem("best")) || 0
           );
           localStorage.setItem("best", this.score.best);
-          let bs = `BEST  :     ${this.score.best}`;
-          sctx.fillText(sc, scrn.width / 2 - 80, scrn.height / 2 + 0);
-          sctx.strokeText(sc, scrn.width / 2 - 80, scrn.height / 2 + 0);
-          sctx.fillText(bs, scrn.width / 2 - 80, scrn.height / 2 + 30);
-          sctx.strokeText(bs, scrn.width / 2 - 80, scrn.height / 2 + 30);
+          bestValue = String(this.score.best);
         } catch (e) {
-          sctx.fillText(sc, scrn.width / 2 - 85, scrn.height / 2 + 15);
-          sctx.strokeText(sc, scrn.width / 2 - 85, scrn.height / 2 + 15);
+          // Fallback if localStorage fails
         }
-
+        
+        const centerY = ORIGINAL_HEIGHT / 2;
+        const labelY = centerY - 10;
+        const valueY = centerY + 20;
+        const bestLabelY = centerY + 50;
+        const bestValueY = centerY + 80;
+        
+        // Draw score label
+        sctx.shadowBlur = 10;
+        sctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+        sctx.fillStyle = "#FFD700"; // Gold color for labels
+        sctx.fillText(scoreLabel, ORIGINAL_WIDTH / 2, labelY);
+        
+        // Draw score value - bright white
+        sctx.shadowBlur = 12;
+        sctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+        sctx.fillStyle = "#FFFFFF";
+        sctx.fillText(scoreValue, ORIGINAL_WIDTH / 2, valueY);
+        
+        // Draw best label
+        sctx.shadowBlur = 10;
+        sctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+        sctx.fillStyle = "#FFD700"; // Gold color for labels
+        sctx.fillText(bestLabel, ORIGINAL_WIDTH / 2, bestLabelY);
+        
+        // Draw best value - bright white
+        sctx.shadowBlur = 12;
+        sctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+        sctx.fillStyle = "#FFFFFF";
+        sctx.fillText(bestValue, ORIGINAL_WIDTH / 2, bestValueY);
+        
+        // Add subtle outlines for all text
+        sctx.shadowBlur = 0;
+        sctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+        sctx.lineWidth = 1.5;
+        sctx.strokeText(scoreLabel, ORIGINAL_WIDTH / 2, labelY);
+        sctx.strokeText(scoreValue, ORIGINAL_WIDTH / 2, valueY);
+        sctx.strokeText(bestLabel, ORIGINAL_WIDTH / 2, bestLabelY);
+        sctx.strokeText(bestValue, ORIGINAL_WIDTH / 2, bestValueY);
         break;
     }
   },
@@ -416,11 +510,16 @@ function update() {
 }
 
 function draw() {
+  // Clear canvas with smooth background
   sctx.fillStyle = "#30c0df";
-  sctx.fillRect(0, 0, scrn.width, scrn.height);
+  sctx.fillRect(0, 0, ORIGINAL_WIDTH, ORIGINAL_HEIGHT);
+  
+  // Ensure high-quality rendering throughout
+  sctx.imageSmoothingEnabled = true;
+  sctx.imageSmoothingQuality = 'high';
+  
   bg.draw();
   pipe.draw();
-
   bird.draw();
   gnd.draw();
   UI.draw();
