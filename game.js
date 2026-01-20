@@ -92,13 +92,26 @@ const gnd = {
   x: 0,
   y: 0,
   draw: function () {
+    if (!this.sprite.complete || this.sprite.width === 0) return;
     this.y = parseFloat(scrn.height - this.sprite.height);
-    sctx.drawImage(this.sprite, this.x, this.y);
+    
+    // Tile the ground to cover the entire screen width
+    const spriteWidth = this.sprite.width;
+    const startX = this.x % spriteWidth;
+    
+    // Draw ground tiles to cover entire screen width
+    for (let x = startX - spriteWidth; x < scrn.width + spriteWidth; x += spriteWidth) {
+      sctx.drawImage(this.sprite, x, this.y);
+    }
   },
   update: function () {
     if (state.curr != state.Play) return;
     this.x -= dx;
-    this.x = this.x % (this.sprite.width / 2);
+    // Keep x within reasonable bounds to prevent overflow
+    const spriteWidth = this.sprite.complete && this.sprite.width > 0 ? this.sprite.width : 336;
+    if (this.x <= -spriteWidth) {
+      this.x += spriteWidth;
+    }
   },
 };
 const bg = {
