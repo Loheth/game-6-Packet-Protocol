@@ -643,9 +643,8 @@ function update() {
 }
 
 function draw() {
-  // Clear canvas with smooth background
-  sctx.fillStyle = "#30c0df";
-  sctx.fillRect(0, 0, ORIGINAL_WIDTH, ORIGINAL_HEIGHT);
+  // Clear canvas with transparent background (background image is in body CSS)
+  sctx.clearRect(0, 0, ORIGINAL_WIDTH, ORIGINAL_HEIGHT);
   
   // Ensure high-quality rendering throughout
   sctx.imageSmoothingEnabled = true;
